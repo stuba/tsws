@@ -166,6 +166,7 @@ function tsws {
 
   local -r host="${1:-127.0.0.1}"
   local -r port="${2:-18080}"
+  local -r _allow_only=${3:-}
   local -r _socat=$(which socat)
   local -r _nc=$(which nc)
 
@@ -175,12 +176,12 @@ function tsws {
     printf $' on %s:%s\n\n' "${host}" "${port}" >"${TSWS_LOG}"
   fi
 
-  if [ -x "${_socat}" ]; then
+  if [ -x "${_socat}" ] && [[ "$_allow_only" == "" || "$_allow_only" == "socat" ]]; then
     local -r _bash=$(which bash)
     "${_socat}" \
       "TCP-LISTEN:${port},bind=${host},fork" \
       "SYSTEM:TSWS_RESPONSE=1 TSWS_LOG=${TSWS_LOG} $0"
-  elif [ -x "${_nc}" ]; then
+  elif [ -x "${_nc}" ] && [[ "$_allow_only" == "" || "$_allow_only" == "nc" ]]; then
     # Initialize the FIFO pipe.
     local -r fifo="$(mktemp -u)"
     mkfifo -m 600 "${fifo}"
