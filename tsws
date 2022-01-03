@@ -169,8 +169,9 @@ function tsws {
   local -r _allow_only=${3:-}
   local -r _socat=$(which socat)
   local -r _nc=$(which nc)
+  NC_FORK=${NC_FORK:-false}
 
-  if [ -x "${_socat}" ] || [ -x "${_nc}" ]; then
+  if [ -x "${_socat}" ] || [ -x "${_nc}" ] && ! $NC_FORK; then
     printf $'\ntsws HTTP/1.1' >"${TSWS_LOG}"
     printf $' started %s' "$(date)" >"${TSWS_LOG}"
     printf $' on %s:%s\n\n' "${host}" "${port}" >"${TSWS_LOG}"
@@ -188,10 +189,25 @@ function tsws {
     trap "[ -f \"${fifo}\" ] && rm \"${fifo}\"" EXIT INT TERM HUP # Cleanup.
     # Connect _tsws_response to STDIN. Connect STDOUT to FIFO pipe. Then listen
     # on ${host}:${port}. nc -l is "listen" and -k is "listen forever".
-    "${_nc}" -kl "${host}" ${port} \
+
+    
+    if $NC_FORK ; then
+      
+      declare -g NC_PID=0
+
+      "${_nc}" -kl "${host}" ${port} \
       0< <(while : ; do _tsws_response 0< "${fifo}"; done) \
       1> >(while : ; do cat - > "${fifo}"; done) \
-      2>"${TSWS_LOG}" # Loop ^^ keeps pipe open.
+      2>"${TSWS_LOG}" &
+
+      NC_PID=$!
+    else
+      "${_nc}" -kl "${host}" ${port} \
+      0< <(while : ; do _tsws_response 0< "${fifo}"; done) \
+      1> >(while : ; do cat - > "${fifo}"; done) \
+      2>"${TSWS_LOG}"
+    fi
+      # Loop ^^ keeps pipe open.
       # Send ^^ nc errors (2>) to the log.
   else
     printf $'\nCannot find "socat" or "nc", cannot continue.' >"${TSWS_LOG}"
@@ -295,13 +311,25 @@ function _tsws_response {
       esac
       clen=$(cat "${obf}"|wc -c)
       # Log the request.
-      printf $'%s %s' "${method}" "${path} $(date); " >"${TSWS_LOG}"
-      # Output headers, tee shows the response headers in log.
-      printf $'HTTP/1.1 %s %s\r\n' "${status:?}" "${msg:?}" | tee "${TSWS_LOG}"
-      printf $'Content-Length: %s\r\n' "${clen}" | tee "${TSWS_LOG}"
-      printf $'Content-Type: %s\r\n' "${content_type}" | tee "${TSWS_LOG}"
-      printf $'Connection: close\r\n' | tee "${TSWS_LOG}"
-      printf $'\r\n' | tee "${TSWS_LOG}"
+      if ! $NC_FORK ; then
+        printf $'%s %s' "${method}" "${path} $(date); " >"${TSWS_LOG}"
+
+        # Output headers, tee shows the response headers in log.
+        printf $'HTTP/1.1 %s %s\r\n' "${status:?}" "${msg:?}" | tee "${TSWS_LOG}"
+        printf $'Content-Length: %s\r\n' "${clen}" | tee "${TSWS_LOG}"
+        printf $'Content-Type: %s\r\n' "${content_type}" | tee "${TSWS_LOG}"
+        printf $'Connection: close\r\n' | tee "${TSWS_LOG}"
+        printf $'\r\n' | tee "${TSWS_LOG}"
+      else
+        # Output headers only
+        printf $'HTTP/1.1 %s %s\r\n' "${status:?}" "${msg:?}"
+        printf $'Content-Length: %s\r\n' "${clen}"
+        printf $'Content-Type: %s\r\n' "${content_type}"
+        printf $'Connection: close\r\n'
+        printf $'\r\n'
+      fi
+
+      
       # Output the response data.
       [ "${method}" != "HEAD" ] && cat "${obf}"
       # This is meant to clean up a temporary file so if you alter the code
