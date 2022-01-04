@@ -24,6 +24,13 @@ function removeLockFile(){
 declare -g NC_FORK=true
 declare -g NC_KEEP_LOOKING_LOCK_FILE="/tmp/.auth_pomerium_wait_for_reposnse"
 
+echo ""
+echo ""
+
+if [[ $# -eq 0 ]] ; then
+	echo -e "\e[31mPomerimum route needs to be defined as first argument \e[0m"
+	exit 1
+fi
 
 POMERIUM_ROUTE=$1
 JWT_LOCATION=$2
@@ -36,16 +43,12 @@ LOGIN_URL="${1}/.pomerium/api/v1/login?pomerium_redirect_uri=http://${CALLBACK_U
 STATUS_URL="${1}/api.php"
 
 echo ""
-echo ""
-
-
 if [ -e "${JWT_LOCATION}" ]; then
 	JWT=$(cat "${JWT_LOCATION}")
 	_RETURN=$(curl -s -L -H "Authorization: Pomerium ${JWT}" ${STATUS_URL})
 	if [ "${_RETURN}" == "Oops, it looks like this content does not exist..." ]; then
 		echo -e "\e[32mAuthentication is valid, no need to login again\e[0m"
-		echo -e "\e[34mJWT token is sotered at '${JWT_LOCATION}'\e[0m"
-		Cleanup
+		echo -e "\e[34mJWT token is sotered in '${JWT_LOCATION}'\e[0m"
 		exit 0
 	fi
 	
@@ -83,11 +86,10 @@ while [[ NC_PID -gt 0 ]]; do
 		echo -e "\e[32mJWT has been written into '${JWT_LOCATION}'\e[0m"
 		echo ""
 		sleep 1
-		Cleanup
 		exit 0;
 	fi
 	
 	sleep 1
 done
 
-Cleanup
+exit 0
