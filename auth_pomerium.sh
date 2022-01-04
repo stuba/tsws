@@ -33,16 +33,16 @@ if [[ $# -eq 0 ]] ; then
 fi
 
 POMERIUM_ROUTE=$1
-JWT_LOCATION=$2
+JWT_LOCATION=${2:-.jwt}
 
-CALLBACK_URL="127.0.0.1"
-CALLBACK_PORT="18080"
+
+CALLBACK_URL=${CALLBACK_URL:-127.0.0.1}
+CALLBACK_PORT=${CALLBACK_PORT:-18080}
 
 
 LOGIN_URL="${1}/.pomerium/api/v1/login?pomerium_redirect_uri=http://${CALLBACK_URL}:$CALLBACK_PORT"
 STATUS_URL="${1}/api.php"
 
-echo ""
 if [ -e "${JWT_LOCATION}" ]; then
 	JWT=$(cat "${JWT_LOCATION}")
 	_RETURN=$(curl -s -L -H "Authorization: Pomerium ${JWT}" ${STATUS_URL})
