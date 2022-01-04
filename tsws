@@ -231,7 +231,7 @@ function _tsws_response {
     line="$(sed $'s/[\r\b\a\t]//g' <<< "${line}")"
     # Sanitize. TODO this santization is probably not complete and may
     # behave incorrectly for some URLs.
-    line="$(sed 's/[^-a-zA-Z0-9\/\.\:\?\+\*\&\=[:space:]]//g' <<< "${line}")"
+    line="$(sed 's/[^-a-zA-Z0-9_\/\.\:\?\+\*\&\=[:space:]]//g' <<< "${line}")"
     if [ -n "${line}" ]; then
       # ${line} is not empty, it is either a "Request-Line" or a header
       # line. If we have no 'method' yet we assume it is a Request-Line.
